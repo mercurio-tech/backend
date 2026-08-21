@@ -15,6 +15,12 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
+    "sqlite3-offline-next": "^5.0.3"
   }
 }
