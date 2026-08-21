@@ -1,0 +1,20 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "pra sip",
+  "homepage": "https://github.com/mercurio-tech/backend#readme",
+  "bugs": {
+    "url": "https://github.com/mercurio-tech/backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mercurio-tech/backend.git"
+  },
+  "license": "ISC",
+  "author": "mercurio-tech",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
