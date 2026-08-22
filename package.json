@@ -13,14 +13,25 @@
   "license": "ISC",
   "author": "mercurio-tech",
   "type": "module",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node index.js"
+    "dev": "node index.ts"
   },
   "dependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
-    "sqlite3-offline-next": "^5.0.3"
+    "sqlite3-offline-next": "^5.0.3",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "sqlite3@6.0.1": true
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
   }
 }
