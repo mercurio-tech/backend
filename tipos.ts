@@ -20,6 +20,24 @@ export const DetailedProject = z.object({
   pdf: z.string(),
 });
 
+export const Admin = z.object({
+  id: z.int(),
+  nome: z.string(),
+  senha: z.string(),
+  permissao: z.enum(["admin", "editor"]),
+});
+
+export const AuthSchema = z.object({
+  username: z.string().min(3).max(20),
+  password: z.string().min(8).max(100),
+});
+
+export const RegisterAdminSchema = z.object({
+  auth: z.optional(AuthSchema),
+  username: z.string().min(3).max(20),
+  password: z.string().min(8).max(100),
+  permission: z.enum(["admin", "editor"]),
+});
 export interface ResponseError {
   error: true;
   result: string;
@@ -35,4 +53,9 @@ export interface GetProjectsResponse extends ResponseSuccess<
 
 export interface GetProjectDetailsResponse extends ResponseSuccess<
   z.infer<typeof DetailedProject>
+> {}
+
+export interface RegisterAdminResponse extends ResponseSuccess<string> {}
+export interface RegisterAdminRequest extends z.infer<
+  typeof RegisterAdminSchema
 > {}

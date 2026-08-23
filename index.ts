@@ -3,13 +3,21 @@ import { open } from "sqlite";
 import { rateLimit } from "express-rate-limit";
 import express from "express";
 import type { Response } from "express";
+import { hash, compare } from "bcrypt-ts";
 import * as z from "zod";
 import type {
   ResponseError,
   GetProjectsResponse,
   GetProjectDetailsResponse,
+  RegisterAdminRequest,
+  RegisterAdminResponse,
 } from "./tipos";
-import { Project, DetailedProject } from "./tipos.ts";
+import {
+  Project,
+  DetailedProject,
+  RegisterAdminSchema,
+  Admin,
+} from "./tipos.ts";
 
 const port = 3000;
 const app = express();
@@ -72,6 +80,19 @@ async function getDetailedProject(id: string) {
     return null;
   }
   return DetailedProject.parse(val);
+}
+
+async function verifyAuth(username: string, password: string) {
+  const adminUnverified = await db.get(
+    "select senha from admins where nome = ?;",
+    [username],
+  );
+  if (adminUnverified === undefined) {
+    return false;
+  } else {
+    const admin = await Admin.parse(adminUnverified);
+    return await compare(password, admin.senha);
+  }
 }
 app.use(limiter);
 
@@ -139,26 +160,42 @@ app.get(
   },
 );
 
-app.post("/registerAdmin/", async (req, res) => {
-  const { count } = await db.get("select count(*) as count from admins");
-  if (count < 0) {
-    // no admins yet stored. this means we're setting up the DB
-    // in this case, we can allow the registration of the first admin without any authentication
-    const { username, password, permission } = req.body;
-    if (!username || !password || !permission) {
-      sendError(res, "Missing username, password, or permission.", 400);
+app.post(
+  "/registerAdmin/",
+  async (
+    req: { body: z.infer<typeof RegisterAdminSchema> },
+    res: Response<ResponseError | RegisterAdminResponse>,
+  ) => {
+    const { count } = await db.get("select count(*) as count from admins");
+    let body;
+    try {
+      body = RegisterAdminSchema.parse(req.body);
+    } catch (error) {
+      sendError(res, "Invalid request body.", 400);
       return;
     }
-    await db.run(
-      "insert into admins (username, password, permission) values (?, ?, ?);",
-      [username, password, permission],
-    );
-    send(res, { message: "Admin registered successfully." }, 201);
-  } else {
-    sendError(res, "Not Implemented", 501);
-    /*const admin = await db.get(
-      "select * from admins where username = ? and password = ?;",
-      [username, password],
-    );*/
-  }
-});
+    const { username, password, permission } = body;
+    if (count < 0) {
+      await db.run(
+        "insert into admins (nome, senha, permissao) values (?, ?, ?);",
+        [username, await hash(password, 10), permission],
+      );
+      send(res, { message: "Admin registered successfully." }, 201);
+    } else {
+      if (body.auth === undefined) {
+        sendError(res, "Authentication required to register new admin.", 401);
+        return;
+      }
+      const isAuth = await verifyAuth(body.auth.username, body.auth.password);
+      if (!isAuth) {
+        sendError(res, "Could not authenticate user.", 401);
+        return;
+      }
+      await db.run(
+        "insert into admins (nome, senha, permissao) values (?, ?, ?);",
+        [username, await hash(password, 10), permission],
+      );
+      send(res, { message: "Admin registered successfully." }, 201);
+    }
+  },
+);
