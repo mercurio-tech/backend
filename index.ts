@@ -1,30 +1,24 @@
-import sqlite3 from "sqlite3-offline-next";
-import { open } from "sqlite";
+
 import { rateLimit } from "express-rate-limit";
 import express from "express";
 import type { Response } from "express";
-import { hash, compare } from "bcrypt-ts";
+import { hash } from "bcrypt-ts";
 import * as z from "zod";
 import type {
   ResponseError,
   GetProjectsResponse,
   GetProjectDetailsResponse,
-  RegisterAdminRequest,
   RegisterAdminResponse,
 } from "./tipos";
 import {
-  Project,
-  DetailedProject,
   RegisterAdminSchema,
-  Admin,
 } from "./tipos.ts";
+import { DB } from "./db.ts";
 
 const port = 3000;
 const app = express();
-const db = await open({
-  filename: "./dados/banco.db",
-  driver: sqlite3.Database,
-});
+const db = new DB();
+
 app.listen(port);
 
 const limiter = rateLimit({
@@ -55,45 +49,6 @@ function sendError(res: Response, error: string, statusCode?: number) {
   });
 }
 
-async function getProjects(page: number): Promise<z.infer<typeof Project>[]> {
-  const projects: z.infer<typeof Project>[] = [];
-  const result = await db.all(
-    "select id, titulo, subtitulo, aluno, ano, tags, imagem from teses order by ano limit 10 offset ?;",
-    [(page - 1) * 10],
-  );
-  for (const val of result) {
-    // need to convert tags to array of strings, since sqlite doesn't support arrays natively
-    if (val.tags && typeof val.tags === "string") {
-      val.tags = val.tags.split(",").map((tag: string) => tag.trim());
-    }
-    projects.push(Project.parse(val));
-  }
-  return projects;
-}
-
-async function getDetailedProject(id: string) {
-  const val = await db.get("select * from teses where id = ?;", [id]);
-  if (val.tags && typeof val.tags === "string") {
-    val.tags = val.tags.split(",").map((tag: string) => tag.trim());
-  }
-  if (val === undefined) {
-    return null;
-  }
-  return DetailedProject.parse(val);
-}
-
-async function verifyAuth(username: string, password: string) {
-  const adminUnverified = await db.get(
-    "select senha from admins where nome = ?;",
-    [username],
-  );
-  if (adminUnverified === undefined) {
-    return false;
-  } else {
-    const admin = await Admin.parse(adminUnverified);
-    return await compare(password, admin.senha);
-  }
-}
 app.use(limiter);
 
 app.get(
@@ -101,7 +56,7 @@ app.get(
   async (req: {}, res: Response<ResponseError | GetProjectsResponse>) => {
     let val;
     try {
-      val = await getProjects(1);
+      val = await db.getProjects(1);
     } catch (error) {
       sendError(res, "Error fetching projects.", 500);
       return;
@@ -127,7 +82,7 @@ app.get(
     }
     let val;
     try {
-      val = await getProjects(1);
+      val = await db.getProjects(1);
     } catch (error) {
       sendError(res, "Error fetching projects.", 500);
       return;
@@ -147,7 +102,7 @@ app.get(
     const id = req.params.id;
     let val;
     try {
-      val = await getDetailedProject(id);
+      val = await db.getDetailedProject(id);
     } catch (error) {
       sendError(res, "Error fetching project details.", 500);
       return;
@@ -166,7 +121,6 @@ app.post(
     req: { body: z.infer<typeof RegisterAdminSchema> },
     res: Response<ResponseError | RegisterAdminResponse>,
   ) => {
-    const { count } = await db.get("select count(*) as count from admins");
     let body;
     try {
       body = RegisterAdminSchema.parse(req.body);
@@ -175,26 +129,20 @@ app.post(
       return;
     }
     const { username, password, permission } = body;
-    if (count < 0) {
-      await db.run(
-        "insert into admins (nome, senha, permissao) values (?, ?, ?);",
-        [username, await hash(password, 10), permission],
-      );
+    if (await db.getAdminCount() < 0) {
+      await db.insertAdmin(username, await hash(password, 10), permission)
       send(res, { message: "Admin registered successfully." }, 201);
     } else {
       if (body.auth === undefined) {
         sendError(res, "Authentication required to register new admin.", 401);
         return;
       }
-      const isAuth = await verifyAuth(body.auth.username, body.auth.password);
+      const isAuth = await db.verifyAuth(body.auth.username, body.auth.password);
       if (!isAuth) {
         sendError(res, "Could not authenticate user.", 401);
         return;
       }
-      await db.run(
-        "insert into admins (nome, senha, permissao) values (?, ?, ?);",
-        [username, await hash(password, 10), permission],
-      );
+      await db.insertAdmin(username, await hash(password, 10), permission);
       send(res, { message: "Admin registered successfully." }, 201);
     }
   },
