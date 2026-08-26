@@ -6,12 +6,15 @@ import { hash } from "bcrypt-ts";
 import * as z from "zod";
 import type {
   ResponseError,
+  ResponseSuccess,
   GetProjectsResponse,
   GetProjectDetailsResponse,
   RegisterAdminResponse,
 } from "./tipos";
 import {
   RegisterAdminSchema,
+  IsAdminSchema,
+  CreateProjectSchema,
 } from "./tipos.ts";
 import { DB } from "./db.ts";
 
@@ -114,6 +117,34 @@ app.get(
     }
   },
 );
+
+app.post("/createProject/", async (req: { body: z.infer<typeof CreateProjectSchema> }, res: Response<ResponseError>) => {
+  let body;
+  try {
+    body = CreateProjectSchema.parse(req.body);
+  } catch (error) {
+    sendError(res, "Invalid request body.", 400);
+    return;  
+  }
+  const isAuth = await db.verifyAuth(body.auth.username, body.auth.password);
+  if (!isAuth) {
+    sendError(res, "Could not authenticate user.", 401);
+    return;
+  }
+  await db.putProject(body.project);
+  send(res, { message: "Project created successfully." }, 201);
+})
+
+app.post("/isAdmin/", async (req: { body: z.infer<typeof IsAdminSchema> }, res: Response<ResponseError | ResponseSuccess<boolean>>) => {
+    let body;
+    try {
+      body = IsAdminSchema.parse(req.body);
+    } catch (error) {
+      sendError(res, "Invalid request body.", 400);
+      return;
+    }
+    send(res, { message: await db.verifyAuth(body.auth.username, body.auth.password) });
+});
 
 app.post(
   "/registerAdmin/",

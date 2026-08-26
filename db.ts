@@ -6,6 +6,7 @@ import {
   Project,
   DetailedProject,
   Admin,
+  DetailedProjectWithNoId,
 } from "./tipos.ts";
 
 export class DB {
@@ -16,6 +17,7 @@ export class DB {
         driver: sqlite3.Database,
         }).then((db) => {
             this.db = db;
+            this.createDB();
         });
     }
 
@@ -25,8 +27,14 @@ export class DB {
 
     async createDB() {
         if (!this.isDBCreated()) throw new Error("Database ainda não foi carregada");
-        if (!this.doesDBExist()) {
-
+        if (!await this.doesDBExist()) {
+          console.log("DB does not exist, creating...");
+          try {
+            this.db!.exec("create table admins (id integer unique primary key autoincrement, nome text, senha text, permissao integer);")
+            this.db!.exec("create table teses (id integer unique primary key autoincrement, titulo text, subtitulo text, aluno text, professor text, tags text, ano integer, imagem text, tipo text, pdf text);")
+          } catch (error) {
+            console.log(error);
+          }
         }
     }
 
@@ -46,8 +54,8 @@ export class DB {
     }
 
     async getProjects(page: number): Promise<z.infer<typeof Project>[]> {
-        if (!await this.doesDBExist()) throw new Error("Database não existe");
-        const db = this.db!;
+      if (!await this.doesDBExist()) throw new Error("Database não existe");
+      const db = this.db!;
       const projects: z.infer<typeof Project>[] = [];
       const result = await db.all(
         "select id, titulo, subtitulo, aluno, ano, tags, imagem from teses order by ano limit 10 offset ?;",
@@ -76,6 +84,16 @@ export class DB {
       return DetailedProject.parse(val);
     }
     
+    async putProject(project: z.infer<typeof DetailedProjectWithNoId>) {
+      if (!await this.doesDBExist()) throw new Error("Database não existe");
+      const db = this.db!;
+      const tagsString = project.tags.join(", ");
+      await db.run(
+        "insert into teses (titulo, subtitulo, aluno, professor, tags, ano, imagem, tipo, pdf) values (?, ?, ?, ?, ?, ?, ?, ?, ?);", [
+          project.titulo, project.subtitulo, project.aluno, project.professor, tagsString, project.ano, project.imagem, project.tipo, project.pdf
+      ]);
+    }
+
     async verifyAuth(username: string, password: string) {
         if (!await this.doesDBExist()) throw new Error("Database não existe");
         const db = this.db!;
@@ -98,7 +116,7 @@ export class DB {
     }
 
     async insertAdmin(username: string, password: string, permission: "admin" | "editor") {
-        if (!await this.doesDBExist()) throw new Error("Database não existe");
+      if (!await this.doesDBExist()) throw new Error("Database não existe");
       await this.db!.run(
         "insert into admins (nome, senha, permissao) values (?, ?, ?);",
         [username, await hash(password, 10), permission],
