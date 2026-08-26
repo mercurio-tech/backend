@@ -33,7 +33,7 @@ export const Admin = z.object({
 });
 
 export const AuthSchema = z.object({
-  username: z.string().min(3).max(20),
+  username: z.string().min(3).max(32),
   password: z.string().min(8).max(100),
 });
 

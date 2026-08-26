@@ -2,6 +2,7 @@
 import { rateLimit } from "express-rate-limit";
 import express from "express";
 import type { Response } from "express";
+import cors from "cors";
 import { hash } from "bcrypt-ts";
 import * as z from "zod";
 import type {
@@ -21,8 +22,6 @@ import { DB } from "./db.ts";
 const port = 3000;
 const app = express();
 const db = new DB();
-
-app.listen(port);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -53,6 +52,10 @@ function sendError(res: Response, error: string, statusCode?: number) {
 }
 
 app.use(limiter);
+app.use(cors());
+app.use(express.json());
+
+app.listen(port);
 
 app.get(
   "/getProjects/",
