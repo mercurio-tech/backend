@@ -26,10 +26,11 @@ export const DetailedProject = z.object({
 
 export const DetailedProjectWithNoId = DetailedProject.omit({ id: true });
 
-export enum Perms {
-    EDITOR = 100,
-    ADMIN = 999,
-}
+export const Perms = {
+    EDITOR: 100,
+    ADMIN: 999,
+} as const
+export type Perms = typeof Perms;
 
 export const Admin = z.object({
     id: z.int(),

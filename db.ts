@@ -67,6 +67,9 @@ export class DB {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const { id } = await db.get("select max(id) as id from teses;");
+        if (id === null) {
+          return 1;
+        }
         return id + 1;
     }
 
@@ -124,12 +127,12 @@ export class DB {
     async verifyAuth(
         username: string,
         password: string,
-        permissionLevel: Perms,
+        permissionLevel: Perms[keyof Perms],
     ) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const adminUnverified = await db.get(
-            "select senha from admins where nome = ?;",
+            "select * from admins where nome = ?;",
             [username],
         );
         if (adminUnverified === undefined) {
@@ -139,7 +142,8 @@ export class DB {
             if (admin.permissao < permissionLevel) {
                 return false;
             }
-            return await compare(password, admin.senha);
+            const res = await compare(password, admin.senha);
+            return res;
         }
     }
 
@@ -151,7 +155,7 @@ export class DB {
         return count;
     }
 
-    async insertAdmin(username: string, password: string, permission: Perms) {
+    async insertAdmin(username: string, password: string, permission: Perms[keyof Perms]) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         await this.db!.run(
             "insert into admins (nome, senha, permissao) values (?, ?, ?);",

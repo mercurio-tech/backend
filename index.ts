@@ -2,7 +2,6 @@ import { rateLimit } from "express-rate-limit";
 import express from "express";
 import type { Response } from "express";
 import cors from "cors";
-import { hash } from "bcrypt-ts";
 import * as z from "zod";
 import multer from "multer";
 import fs from "node:fs/promises";
@@ -53,16 +52,8 @@ function sendError(res: Response, error: string, statusCode?: number) {
     });
 }
 
-app.use((req, res, next) => {
-    limiter(req, res, next);
-    cors()(req, res, next);
-    if (req.path == "/createProject/") {
-        next();
-    }
-    express.json()(req, res, next);
-    next();
-});
-
+const middleware = [express.json(), cors(), limiter];
+app.use(middleware);
 app.listen(port);
 
 app.get(
@@ -167,8 +158,8 @@ app.post(
                 const splitImage = image.name.split(".");
                 const imageExtension = splitImage[splitImage.length - 1];
                 const id = await db.getNextId();
-                await fs.mkdir(`dados/imagens/${id}`);
-                await fs.mkdir(`dados/pdfs/${id}`);
+                await fs.mkdir(`dados/imagens/${id}`, { recursive:true });
+                await fs.mkdir(`dados/pdfs/${id}`, { recursive:true });
                 await fs.writeFile(
                     `dados/imagens/${id}/imagem.${imageExtension}`,
                     new DataView(await image.arrayBuffer()),
@@ -223,10 +214,11 @@ app.post(
             return;
         }
         const { username, password, permission } = body;
-        if ((await db.getAdminCount()) < 0) {
+        const adminCount = await db.getAdminCount();
+        if ((adminCount) == 0) {
             await db.insertAdmin(
                 username,
-                await hash(password, 10),
+                password,
                 permission,
             );
             send(res, { message: "Admin registered successfully." }, 201);
@@ -250,7 +242,7 @@ app.post(
             }
             await db.insertAdmin(
                 username,
-                await hash(password, 10),
+                password,
                 permission,
             );
             send(res, { message: "Admin registered successfully." }, 201);
