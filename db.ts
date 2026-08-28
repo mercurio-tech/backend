@@ -2,6 +2,8 @@ import sqlite3 from "sqlite3-offline-next";
 import { open, Database } from "sqlite";
 import { compare, hash } from "bcrypt-ts";
 import * as z from "zod";
+import fs from "node:fs/promises";
+
 import {
     Project,
     DetailedProject,
@@ -10,16 +12,31 @@ import {
     Perms,
 } from "./tipos.ts";
 
+async function checkFolder(dirPath: string) {
+  try {
+    const stats = await fs.stat(dirPath);
+    if (stats.isDirectory()) {
+        return
+    }
+    await fs.rm(dirPath);
+    await fs.mkdir(dirPath)
+  } catch (error) {
+    await fs.mkdir(dirPath);
+  }
+}
 export class DB {
     db?: Database;
     constructor() {
-        open({
-            filename: "./dados/banco.db",
-            driver: sqlite3.Database,
-        }).then((db) => {
-            this.db = db;
-            this.createDB();
-        });
+        checkFolder("dados").then(() => {
+            open({
+                filename: "./dados/banco.db",
+                driver: sqlite3.Database,
+            }).then((db) => {
+                this.db = db;
+                this.createDB();
+            });
+        })
+
     }
 
     isDBCreated() {
