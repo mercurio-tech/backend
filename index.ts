@@ -16,6 +16,7 @@ import {
     RegisterAdminSchema,
     IsAdminSchema,
     CreateProjectSchema,
+    UpdateProjectSchema,
     Perms,
 } from "./tipos.ts";
 import { DB } from "./db.ts";
@@ -247,5 +248,45 @@ app.post(
             );
             send(res, { message: "Admin registered successfully." }, 201);
         }
+    },
+);
+
+app.post(
+    "/updateProject/:id",
+    async (
+        req: {
+            params: { id: string };
+            body: z.infer<typeof UpdateProjectSchema>;
+        },
+        res: Response<ResponseError | ResponseSuccess<Object>>,
+    ) => {
+        let body;
+        try {
+            body = UpdateProjectSchema.parse(req.body);
+        } catch (error) {
+            sendError(res, "Invalid request body.", 400);
+            return;
+        }
+        const isAuth = await db.verifyAuth(
+            body.auth.username,
+            body.auth.password,
+            Perms.ADMIN,
+        );
+        if (!isAuth) {
+            sendError(res, "Could not authenticate user.", 401);
+            return;
+        }
+        let updated;
+        try {
+            updated = await db.updateProject(req.params.id, body.project);
+        } catch (error) {
+            sendError(res, "Error updating project.", 500);
+            return;
+        }
+        if (!updated) {
+            sendError(res, "No project found with id: " + req.params.id, 404);
+            return;
+        }
+        send(res, { message: "Project updated successfully." });
     },
 );

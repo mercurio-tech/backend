@@ -59,6 +59,11 @@ export const CreateProjectSchema = z.object({
     auth: AuthSchema,
     project: DetailedProject.omit({ id: true }),
 });
+
+export const UpdateProjectSchema = z.object({
+    auth: AuthSchema,
+    project: DetailedProject.omit({ id: true }),
+});
 export interface ResponseError {
     error: true;
     result: string;

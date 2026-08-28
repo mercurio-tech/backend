@@ -141,6 +141,31 @@ export class DB {
         );
     }
 
+    async updateProject(
+        id: string,
+        project: z.infer<typeof DetailedProjectWithNoId>,
+    ) {
+        if (!(await this.doesDBExist())) throw new Error("Database não existe");
+        const db = this.db!;
+        const tagsString = project.tags.join(", ");
+        const result = await db.run(
+            "update teses set titulo = ?, subtitulo = ?, aluno = ?, professor = ?, tags = ?, ano = ?, imagem = ?, tipo = ?, pdf = ? where id = ?;",
+            [
+                project.titulo,
+                project.subtitulo,
+                project.aluno,
+                project.professor,
+                tagsString,
+                project.ano,
+                project.imagem,
+                project.tipo,
+                project.pdf,
+                id,
+            ],
+        );
+        return (result.changes ?? 0) > 0;
+    }
+
     async verifyAuth(
         username: string,
         password: string,
