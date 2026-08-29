@@ -29,7 +29,7 @@ export const DetailedProjectWithNoId = DetailedProject.omit({ id: true });
 export const Perms = {
     EDITOR: 100,
     ADMIN: 999,
-} as const
+} as const;
 export type Perms = typeof Perms;
 
 export const Admin = z.object({
@@ -81,6 +81,8 @@ export interface GetProjectsResponse extends ResponseSuccess<
 export interface GetProjectDetailsResponse extends ResponseSuccess<
     z.infer<typeof DetailedProject>
 > {}
+
+export interface GetAdminPresentResponse extends ResponseSuccess<boolean> {}
 
 export interface RegisterAdminResponse extends ResponseSuccess<string> {}
 export interface RegisterAdminRequest extends z.infer<

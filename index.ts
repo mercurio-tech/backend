@@ -11,6 +11,7 @@ import type {
     GetProjectsResponse,
     GetProjectDetailsResponse,
     RegisterAdminResponse,
+    GetAdminPresentResponse,
 } from "./tipos";
 import {
     RegisterAdminSchema,
@@ -121,6 +122,20 @@ app.get(
     },
 );
 
+app.get(
+    "/isAdminPresent/",
+    async (req: {}, res: Response<ResponseError | GetAdminPresentResponse>) => {
+        let val;
+        try {
+            val = await db.getAdminCount();
+        } catch (error) {
+            sendError(res, "Error fetching admin count.", 500);
+            return;
+        }
+        send(res, val !== 0);
+    },
+);
+
 const upload = multer();
 app.post(
     "/createProject/",
@@ -159,8 +174,8 @@ app.post(
                 const splitImage = image.name.split(".");
                 const imageExtension = splitImage[splitImage.length - 1];
                 const id = await db.getNextId();
-                await fs.mkdir(`dados/imagens/${id}`, { recursive:true });
-                await fs.mkdir(`dados/pdfs/${id}`, { recursive:true });
+                await fs.mkdir(`dados/imagens/${id}`, { recursive: true });
+                await fs.mkdir(`dados/pdfs/${id}`, { recursive: true });
                 await fs.writeFile(
                     `dados/imagens/${id}/imagem.${imageExtension}`,
                     new DataView(await image.arrayBuffer()),
@@ -216,12 +231,8 @@ app.post(
         }
         const { username, password, permission } = body;
         const adminCount = await db.getAdminCount();
-        if ((adminCount) == 0) {
-            await db.insertAdmin(
-                username,
-                password,
-                permission,
-            );
+        if (adminCount == 0) {
+            await db.insertAdmin(username, password, permission);
             send(res, { message: "Admin registered successfully." }, 201);
         } else {
             if (body.auth === undefined) {
@@ -241,12 +252,13 @@ app.post(
                 sendError(res, "Could not authenticate user.", 401);
                 return;
             }
-            await db.insertAdmin(
-                username,
-                password,
-                permission,
-            );
-            send(res, { message: "Admin registered successfully." }, 201);
+            if (
+                (await db.insertAdmin(username, password, permission)) !== false
+            ) {
+                send(res, { message: "Admin registered successfully." }, 201);
+            } else {
+                sendError(res, "Duplicate Admin");
+            }
         }
     },
 );

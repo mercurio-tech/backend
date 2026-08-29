@@ -13,16 +13,16 @@ import {
 } from "./tipos.ts";
 
 async function checkFolder(dirPath: string) {
-  try {
-    const stats = await fs.stat(dirPath);
-    if (stats.isDirectory()) {
-        return
+    try {
+        const stats = await fs.stat(dirPath);
+        if (stats.isDirectory()) {
+            return;
+        }
+        await fs.rm(dirPath);
+        await fs.mkdir(dirPath);
+    } catch (error) {
+        await fs.mkdir(dirPath);
     }
-    await fs.rm(dirPath);
-    await fs.mkdir(dirPath)
-  } catch (error) {
-    await fs.mkdir(dirPath);
-  }
 }
 export class DB {
     db?: Database;
@@ -35,8 +35,7 @@ export class DB {
                 this.db = db;
                 this.createDB();
             });
-        })
-
+        });
     }
 
     isDBCreated() {
@@ -85,7 +84,7 @@ export class DB {
         const db = this.db!;
         const { id } = await db.get("select max(id) as id from teses;");
         if (id === null) {
-          return 1;
+            return 1;
         }
         return id + 1;
     }
@@ -197,12 +196,28 @@ export class DB {
         return count;
     }
 
-    async insertAdmin(username: string, password: string, permission: Perms[keyof Perms]) {
+    async adminExists(username: string) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
-        await this.db!.run(
-            "insert into admins (nome, senha, permissao) values (?, ?, ?);",
-            [username, await hash(password, 10), permission],
-        );
+        const val = await this.db!.get("select * from admins where nome=?", [
+            username,
+        ]);
+        console.log(val);
+        return val !== undefined;
+    }
+
+    async insertAdmin(
+        username: string,
+        password: string,
+        permission: Perms[keyof Perms],
+    ) {
+        if (!(await this.adminExists(username))) {
+            await this.db!.run(
+                "insert into admins (nome, senha, permissao) values (?, ?, ?);",
+                [username, await hash(password, 10), permission],
+            );
+        } else {
+            return false;
+        }
     }
 
     async getAdmin(username: string) {
