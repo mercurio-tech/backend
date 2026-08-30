@@ -55,6 +55,41 @@ function sendError(res: Response, error: string, statusCode?: number) {
     });
 }
 
+// Helper to check image signatures
+function isValidImage(buffer: Buffer): boolean {
+    // PNG: 89 50 4E 47
+    if (
+        buffer.length >= 4 &&
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47
+    ) {
+        return true;
+    }
+    // JPEG: FF D8 FF
+    if (
+        buffer.length >= 3 &&
+        buffer[0] === 0xff &&
+        buffer[1] === 0xd8 &&
+        buffer[2] === 0xff
+    ) {
+        return true;
+    }
+    return false;
+}
+
+function isValidPdf(buffer: Buffer): boolean {
+    // PDF: %PDF (25 50 44 46)
+    return (
+        buffer.length >= 4 &&
+        buffer[0] === 0x25 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x44 &&
+        buffer[3] === 0x46
+    );
+}
+
 const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
 app.listen(port);
@@ -185,6 +220,12 @@ app.post(
                 extension = imageExtension;
                 const id = await db.getNextId();
                 try {
+                    if (
+                        !isValidImage(image.buffer) ||
+                        !isValidPdf(pdf.buffer)
+                    ) {
+                        throw new Error("Invalid Files");
+                    }
                     await fs.mkdir(`dados/files/imagens/${id}`, {
                         recursive: true,
                     });
@@ -200,10 +241,12 @@ app.post(
                         pdf.buffer,
                     );
                 } catch (err) {
-                    console.log(err);
+                    sendError(res, "Invalid Files", 401);
+                    return;
                 }
             } else {
                 sendError(res, "Invalid files", 401);
+                return;
             }
         }
         await db.putProject({ ...body.project, extensao: extension! });

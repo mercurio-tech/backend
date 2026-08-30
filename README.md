@@ -1,16 +1,13 @@
 # backend
 
 Backend do Sistema de teses.
-Inclue a implementação do banco de dados (via SQL) e uma API para consultas e para inserir dados no banco  
-Dados da API ainda não definidos
-
-## API Inicial (sujeito a mudanças)
+Inclue a implementação do banco de dados (via SQL) e uma API para consultas e para inserir dados no banco
 
 ## Objetos Principais
 
 ### Project
 
-É a descrição de um projeto, baseado no que é armazenado no Banco de Dados
+É a descrição de um projeto, baseado no que é armazenado no Banco de Dados  
 Estrutura:
 
 ```json
@@ -32,7 +29,7 @@ Certas APIs possa demandar um projeto sem ID, porém isso geralmente e informado
 
 ### AuthSchema
 
-Utilizado em todas APIs em que necessita de permissões Admin
+Utilizado em todas APIs em que necessita de permissões Admin  
 Estrutura:
 
 ```json
@@ -94,7 +91,7 @@ O resultado depende da api que você utilizou.
   (Espera-se um FormData, não JSON comum como as outras APIs)  
   Fields:
     - auth: O [AuthSchema](#authschema) comum em todas APIs admin, porém em string JSON (FormData não suporta json comum)
-    - project: O [Project](#project), porém em string JSON (FormData não suporta json comum)
+    - project: O [Project sem ID](#project), porém em string JSON (FormData não suporta json comum)
     - image: Imagem em PNG, JPEG ou JPG
     - pdf: PDF do projeto
 
@@ -105,9 +102,9 @@ O resultado depende da api que você utilizou.
 
 - /isAdmin/
   $\color{red}{\textsf{POST}}$  
-  Retorna se o usuario possui autenticação valida (não significa que é admin, talvez essa API deve ser renomeada)
+  Retorna se o usuario possui autenticação valida (não significa que é admin, talvez essa API deve ser renomeada)  
   Fields:
-    - auth: O [AuthSchema](#authschema) comum em todas APIs admin
+    - auth: O [AuthSchema](#authschema) comum em todas APIs admin  
       Resultado:  
       result: boolean
 
@@ -119,7 +116,7 @@ O resultado depende da api que você utilizou.
 - /registerAdmin/
   $\color{red}{\textsf{POST}}$  
   $\color{orange}{\textsf{Requer Admin}}$  
-  Registra um novo admin
+  Registra um novo admin  
   Fields:
     - auth: O [AuthSchema](#authschema) comum em todas APIs admin
     - username: string (limite 20 char)
