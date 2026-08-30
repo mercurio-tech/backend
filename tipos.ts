@@ -28,8 +28,8 @@ export const Admin = z.object({
 });
 
 export const AuthSchema = z.object({
-    username: z.string().min(3).max(32),
-    password: z.string().min(8).max(100),
+    username: z.string().min(3).max(20),
+    password: z.string().min(8).max(18),
 });
 
 export const IsAdminSchema = z.object({
@@ -39,7 +39,7 @@ export const IsAdminSchema = z.object({
 export const RegisterAdminSchema = z.object({
     auth: z.optional(AuthSchema),
     username: z.string().min(3).max(20),
-    password: z.string().min(8).max(100),
+    password: z.string().min(8).max(18),
     permission: z.enum(Perms),
 });
 
