@@ -4,13 +4,7 @@ import { compare, hash } from "bcrypt-ts";
 import * as z from "zod";
 import fs from "node:fs/promises";
 
-import {
-    Project,
-    DetailedProject,
-    Admin,
-    DetailedProjectWithNoId,
-    Perms,
-} from "./tipos.ts";
+import { Project, ProjectWithNoId, Admin, Perms } from "./tipos.ts";
 
 async function checkFolder(dirPath: string) {
     try {
@@ -52,7 +46,7 @@ export class DB {
                     "create table admins (id integer unique primary key autoincrement, nome text, senha text, permissao integer);",
                 );
                 this.db!.exec(
-                    "create table teses (id integer unique primary key autoincrement, titulo text, subtitulo text, aluno text, professor text, tags text, ano integer, imagem text, tipo text, pdf text);",
+                    "create table teses (id integer unique primary key autoincrement, titulo text, subtitulo text, descricao text, aluno text, professor text, tags text, ano integer, tipo text, extensao text);",
                 );
             } catch (error) {
                 console.log(error);
@@ -94,7 +88,7 @@ export class DB {
         const db = this.db!;
         const projects: z.infer<typeof Project>[] = [];
         const result = await db.all(
-            "select id, titulo, subtitulo, aluno, ano, tags, imagem from teses order by ano limit 10 offset ?;",
+            "select * from teses order by ano limit 10 offset ?;",
             [(page - 1) * 10],
         );
         for (const val of result) {
@@ -107,7 +101,7 @@ export class DB {
         return projects;
     }
 
-    async getDetailedProject(id: string) {
+    async getProject(id: string) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const val = await db.get("select * from teses where id = ?;", [id]);
@@ -117,48 +111,45 @@ export class DB {
         if (val === undefined) {
             return null;
         }
-        return DetailedProject.parse(val);
+        return Project.parse(val);
     }
 
-    async putProject(project: z.infer<typeof DetailedProjectWithNoId>) {
+    async putProject(project: z.infer<typeof ProjectWithNoId>) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const tagsString = project.tags.join(", ");
         await db.run(
-            "insert into teses (titulo, subtitulo, aluno, professor, tags, ano, imagem, tipo, pdf) values (?, ?, ?, ?, ?, ?, ?, ?, ?);",
+            "insert into teses (titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) values (?, ?, ?, ?, ?, ?, ?, ?, ?);",
             [
                 project.titulo,
                 project.subtitulo,
+                project.descricao,
                 project.aluno,
                 project.professor,
                 tagsString,
                 project.ano,
-                project.imagem,
                 project.tipo,
-                project.pdf,
+                project.extensao,
             ],
         );
     }
 
-    async updateProject(
-        id: string,
-        project: z.infer<typeof DetailedProjectWithNoId>,
-    ) {
+    async updateProject(id: string, project: z.infer<typeof ProjectWithNoId>) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const tagsString = project.tags.join(", ");
         const result = await db.run(
-            "update teses set titulo = ?, subtitulo = ?, aluno = ?, professor = ?, tags = ?, ano = ?, imagem = ?, tipo = ?, pdf = ? where id = ?;",
+            "update teses set titulo = ?, subtitulo = ?, descricao = ?, aluno = ?, professor = ?, tags = ?, ano = ?, tipo = ?, extensao = ? where id = ?;",
             [
                 project.titulo,
                 project.subtitulo,
+                project.descricao,
                 project.aluno,
                 project.professor,
                 tagsString,
                 project.ano,
-                project.imagem,
                 project.tipo,
-                project.pdf,
+                project.extensao,
                 id,
             ],
         );

@@ -9,9 +9,10 @@ import type {
     ResponseError,
     ResponseSuccess,
     GetProjectsResponse,
-    GetProjectDetailsResponse,
+    GetProjectResponse,
     RegisterAdminResponse,
     GetAdminPresentResponse,
+    CreateProjectReq,
 } from "./tipos";
 import {
     RegisterAdminSchema,
@@ -104,12 +105,12 @@ app.get(
     "/getProjectDetails/:id",
     async (
         req: { params: { id: string } },
-        res: Response<ResponseError | GetProjectDetailsResponse>,
+        res: Response<ResponseError | GetProjectResponse>,
     ) => {
         const id = req.params.id;
         let val;
         try {
-            val = await db.getDetailedProject(id);
+            val = await db.getProject(id);
         } catch (error) {
             sendError(res, "Error fetching project details.", 500);
             return;
@@ -144,12 +145,19 @@ app.post(
         { name: "pdf", maxCount: 1 },
     ]),
     async (
-        req: { body: z.infer<typeof CreateProjectSchema> },
+        req: { body: z.infer<typeof CreateProjectReq> },
         res: Response<ResponseError>,
     ) => {
         let body;
         try {
-            body = CreateProjectSchema.parse(req.body);
+            if (req.body.auth && req.body.project) {
+                body = CreateProjectSchema.parse({
+                    auth: JSON.parse(req.body.auth),
+                    project: JSON.parse(req.body.project),
+                });
+            } else {
+                throw new Error("bad");
+            }
         } catch (error) {
             sendError(res, "Invalid request body.", 400);
             return;
@@ -163,32 +171,42 @@ app.post(
             sendError(res, "Could not authenticate user.", 401);
             return;
         }
-        const filesBody = req.body as unknown as {
-            files: { image: File[]; pdf: File[] };
+        const filesBody = req as unknown as {
+            files: { image: Express.Multer.File[]; pdf: Express.Multer.File[] };
         };
+        let extension;
         if (filesBody.files) {
             const files = filesBody.files;
             if (files.image && files.pdf) {
                 const image = files.image[0];
                 const pdf = files.pdf[0];
-                const splitImage = image.name.split(".");
+                const splitImage = image.originalname.split(".");
                 const imageExtension = splitImage[splitImage.length - 1];
+                extension = imageExtension;
                 const id = await db.getNextId();
-                await fs.mkdir(`dados/imagens/${id}`, { recursive: true });
-                await fs.mkdir(`dados/pdfs/${id}`, { recursive: true });
-                await fs.writeFile(
-                    `dados/imagens/${id}/imagem.${imageExtension}`,
-                    new DataView(await image.arrayBuffer()),
-                );
-                await fs.writeFile(
-                    `dados/pdfs/${id}/arquivo.pdf`,
-                    new DataView(await pdf.arrayBuffer()),
-                );
+                try {
+                    await fs.mkdir(`dados/files/imagens/${id}`, {
+                        recursive: true,
+                    });
+                    await fs.mkdir(`dados/files/pdfs/${id}`, {
+                        recursive: true,
+                    });
+                    await fs.writeFile(
+                        `dados/files/imagens/${id}/imagem.${imageExtension}`,
+                        image.buffer,
+                    );
+                    await fs.writeFile(
+                        `dados/files/pdfs/${id}/arquivo.pdf`,
+                        pdf.buffer,
+                    );
+                } catch (err) {
+                    console.log(err);
+                }
             } else {
                 sendError(res, "Invalid files", 401);
             }
         }
-        await db.putProject(body.project);
+        await db.putProject({ ...body.project, extensao: extension! });
         send(res, { message: "Project created successfully." }, 201);
     },
 );
@@ -272,6 +290,7 @@ app.post(
         },
         res: Response<ResponseError | ResponseSuccess<Object>>,
     ) => {
+        // to-do: fix this
         let body;
         try {
             body = UpdateProjectSchema.parse(req.body);
@@ -302,3 +321,5 @@ app.post(
         send(res, { message: "Project updated successfully." });
     },
 );
+
+app.use("/files", express.static("dados/files"));

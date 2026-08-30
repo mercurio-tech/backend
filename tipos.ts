@@ -3,28 +3,16 @@ export const Project = z.object({
     id: z.int(),
     titulo: z.string(),
     subtitulo: z.string(),
+    descricao: z.string(),
     aluno: z.string(),
     professor: z.string(),
     tipo: z.string(),
     ano: z.int(),
     tags: z.array(z.string()),
-    imagem: z.string(),
+    extensao: z.string(),
 });
 
-export const DetailedProject = z.object({
-    id: z.int(),
-    titulo: z.string(),
-    subtitulo: z.string(),
-    aluno: z.string(),
-    professor: z.string(),
-    tipo: z.string(),
-    ano: z.int(),
-    tags: z.array(z.string()),
-    imagem: z.string(),
-    pdf: z.string(),
-});
-
-export const DetailedProjectWithNoId = DetailedProject.omit({ id: true });
+export const ProjectWithNoId = Project.omit({ id: true });
 
 export const Perms = {
     EDITOR: 100,
@@ -57,12 +45,17 @@ export const RegisterAdminSchema = z.object({
 
 export const CreateProjectSchema = z.object({
     auth: AuthSchema,
-    project: DetailedProject.omit({ id: true }),
+    project: ProjectWithNoId.omit({ extensao: true }),
+});
+
+export const CreateProjectReq = z.object({
+    auth: z.string(),
+    project: z.string(),
 });
 
 export const UpdateProjectSchema = z.object({
     auth: AuthSchema,
-    project: DetailedProject.omit({ id: true }),
+    project: Project.omit({ extensao: true }),
 });
 export interface ResponseError {
     error: true;
@@ -78,8 +71,8 @@ export interface GetProjectsResponse extends ResponseSuccess<
     z.infer<typeof Project>[]
 > {}
 
-export interface GetProjectDetailsResponse extends ResponseSuccess<
-    z.infer<typeof DetailedProject>
+export interface GetProjectResponse extends ResponseSuccess<
+    z.infer<typeof Project>
 > {}
 
 export interface GetAdminPresentResponse extends ResponseSuccess<boolean> {}
