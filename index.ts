@@ -90,6 +90,72 @@ function isValidPdf(buffer: Buffer): boolean {
     );
 }
 
+async function uploadFiles(req: Request, res: Response, requiresBoth: boolean, id?: number) {
+    const filesBody = req as unknown as {
+        files: { image: Express.Multer.File[]; pdf: Express.Multer.File[] };
+    };
+    let extension;
+    if (filesBody.files) {
+        const files = filesBody.files;
+        id = id || await db.getNextId();
+        let imageCondition;
+        if (requiresBoth) {
+            imageCondition = files.image && files.pdf
+        } else {
+            imageCondition = files.image !== undefined
+        }
+
+        if (imageCondition) {
+            const image = files.image[0];
+            const splitImage = image.originalname.split(".");
+            const imageExtension = splitImage[splitImage.length - 1];
+            extension = imageExtension;
+            try {
+                if (!isValidImage(image.buffer)) {
+                    throw new Error("Invalid Files");
+                }
+                await fs.mkdir(`dados/files/imagens/${id}`, {
+                    recursive: true,
+                });
+                await fs.writeFile(
+                    `dados/files/imagens/${id}/imagem.${imageExtension}`,
+                    image.buffer,
+                );
+            } catch (err) {
+                sendError(res, "Invalid Files", 401);
+                return;
+            }
+        }
+
+        let pdfCondition;
+        if (requiresBoth) {
+            pdfCondition = files.pdf && files.image
+        } else {
+            pdfCondition = files.pdf !== undefined
+        }
+
+        if (pdfCondition) {
+            const pdf = files.pdf[0];
+            if (!isValidPdf(pdf.buffer)) {
+                throw new Error("Invalid Files");
+            }
+            try {
+                await fs.mkdir(`dados/files/pdfs/${id}`, {
+                    recursive: true,
+                });
+                await fs.writeFile(
+                    `dados/files/pdfs/${id}/arquivo.pdf`,
+                    pdf.buffer,
+                );
+            } catch (err) {
+                sendError(res, "Invalid Files", 401);
+                return;
+            }
+        }
+        return extension;
+    }
+}
+
 const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
 app.listen(port);
@@ -206,51 +272,68 @@ app.post(
             sendError(res, "Could not authenticate user.", 401);
             return;
         }
-        const filesBody = req as unknown as {
-            files: { image: Express.Multer.File[]; pdf: Express.Multer.File[] };
-        };
-        let extension;
-        if (filesBody.files) {
-            const files = filesBody.files;
-            if (files.image && files.pdf) {
-                const image = files.image[0];
-                const pdf = files.pdf[0];
-                const splitImage = image.originalname.split(".");
-                const imageExtension = splitImage[splitImage.length - 1];
-                extension = imageExtension;
-                const id = await db.getNextId();
-                try {
-                    if (
-                        !isValidImage(image.buffer) ||
-                        !isValidPdf(pdf.buffer)
-                    ) {
-                        throw new Error("Invalid Files");
-                    }
-                    await fs.mkdir(`dados/files/imagens/${id}`, {
-                        recursive: true,
-                    });
-                    await fs.mkdir(`dados/files/pdfs/${id}`, {
-                        recursive: true,
-                    });
-                    await fs.writeFile(
-                        `dados/files/imagens/${id}/imagem.${imageExtension}`,
-                        image.buffer,
-                    );
-                    await fs.writeFile(
-                        `dados/files/pdfs/${id}/arquivo.pdf`,
-                        pdf.buffer,
-                    );
-                } catch (err) {
-                    sendError(res, "Invalid Files", 401);
-                    return;
-                }
-            } else {
-                sendError(res, "Invalid files", 401);
-                return;
-            }
+        
+        const extension = await uploadFiles(req as unknown as Request, res, true);
+        if (extension === undefined) {
+            return;
         }
         await db.putProject({ ...body.project, extensao: extension! });
         send(res, { message: "Project created successfully." }, 201);
+    },
+);
+
+app.post(
+    "/updateProject/",
+    upload.fields([
+        { name: "image", maxCount: 1 },
+        { name: "pdf", maxCount: 1 },
+    ]),
+    async (
+        req: {
+            body: z.infer<typeof CreateProjectReq>;
+        },
+        res: Response<ResponseError | ResponseSuccess<Object>>,
+    ) => {
+        let body;
+        try {
+            if (req.body.auth && req.body.project) {
+                body = UpdateProjectSchema.parse({
+                    auth: JSON.parse(req.body.auth),
+                    project: JSON.parse(req.body.project),
+                });
+            } else {
+                throw new Error("bad");
+            }
+        } catch (error) {
+            sendError(res, "Invalid request body.", 400);
+            return;
+        }
+        const isAuth = await db.verifyAuth(
+            body.auth.username,
+            body.auth.password,
+            Perms.ADMIN,
+        );
+        if (!isAuth) {
+            sendError(res, "Could not authenticate user.", 401);
+            return;
+        }
+        let updated;
+        try {
+            const extension = await uploadFiles(req as unknown as Request, res, false, body.project.id);
+            updated = await db.updateProject({
+                ...body.project,
+                extensao: extension
+            });
+        } catch (error) {
+            console.log(error)
+            //sendError(res, "Error updating project.", 500);
+            return;
+        }
+        if (!updated) {
+            sendError(res, "No project found with id: " + body.project.id, 404);
+            return;
+        }
+        send(res, { message: "Project updated successfully." });
     },
 );
 
@@ -321,47 +404,6 @@ app.post(
                 sendError(res, "Duplicate Admin");
             }
         }
-    },
-);
-
-app.post(
-    "/updateProject/:id",
-    async (
-        req: {
-            params: { id: string };
-            body: z.infer<typeof UpdateProjectSchema>;
-        },
-        res: Response<ResponseError | ResponseSuccess<Object>>,
-    ) => {
-        // to-do: fix this
-        let body;
-        try {
-            body = UpdateProjectSchema.parse(req.body);
-        } catch (error) {
-            sendError(res, "Invalid request body.", 400);
-            return;
-        }
-        const isAuth = await db.verifyAuth(
-            body.auth.username,
-            body.auth.password,
-            Perms.ADMIN,
-        );
-        if (!isAuth) {
-            sendError(res, "Could not authenticate user.", 401);
-            return;
-        }
-        let updated;
-        try {
-            updated = await db.updateProject(req.params.id, body.project);
-        } catch (error) {
-            sendError(res, "Error updating project.", 500);
-            return;
-        }
-        if (!updated) {
-            sendError(res, "No project found with id: " + req.params.id, 404);
-            return;
-        }
-        send(res, { message: "Project updated successfully." });
     },
 );
 

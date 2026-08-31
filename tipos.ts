@@ -12,6 +12,19 @@ export const Project = z.object({
     extensao: z.string(),
 });
 
+export const ProjectOptionalExtension = z.object({
+    id: z.int(),
+    titulo: z.string(),
+    subtitulo: z.string(),
+    descricao: z.string(),
+    aluno: z.string(),
+    professor: z.string(),
+    tipo: z.string(),
+    ano: z.int(),
+    tags: z.array(z.string()),
+    extensao: z.optional(z.string()),    
+})
+
 export const ProjectWithNoId = Project.omit({ id: true });
 
 export const Perms = {
@@ -57,6 +70,7 @@ export const UpdateProjectSchema = z.object({
     auth: AuthSchema,
     project: Project.omit({ extensao: true }),
 });
+
 export interface ResponseError {
     error: true;
     result: string;

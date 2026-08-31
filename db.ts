@@ -4,7 +4,7 @@ import { compare, hash } from "bcrypt-ts";
 import * as z from "zod";
 import fs from "node:fs/promises";
 
-import { Project, ProjectWithNoId, Admin, Perms } from "./tipos.ts";
+import { Project, ProjectWithNoId, ProjectOptionalExtension, Admin, Perms } from "./tipos.ts";
 
 async function checkFolder(dirPath: string) {
     try {
@@ -134,25 +134,44 @@ export class DB {
         );
     }
 
-    async updateProject(id: string, project: z.infer<typeof ProjectWithNoId>) {
+    async updateProject(project: z.infer<typeof ProjectOptionalExtension>) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const tagsString = project.tags.join(", ");
-        const result = await db.run(
-            "update teses set titulo = ?, subtitulo = ?, descricao = ?, aluno = ?, professor = ?, tags = ?, ano = ?, tipo = ?, extensao = ? where id = ?;",
-            [
-                project.titulo,
-                project.subtitulo,
-                project.descricao,
-                project.aluno,
-                project.professor,
-                tagsString,
-                project.ano,
-                project.tipo,
-                project.extensao,
-                id,
-            ],
-        );
+        let result;
+        if (project.extensao) {
+            result = await db.run(
+                "update teses set titulo = ?, subtitulo = ?, descricao = ?, aluno = ?, professor = ?, tags = ?, ano = ?, tipo = ?, extensao = ? where id = ?;",
+                [
+                    project.titulo,
+                    project.subtitulo,
+                    project.descricao,
+                    project.aluno,
+                    project.professor,
+                    tagsString,
+                    project.ano,
+                    project.tipo,
+                    project.extensao,
+                    project.id,
+                ],
+            );
+        } else {
+            result = await db.run(
+                "update teses set titulo = ?, subtitulo = ?, descricao = ?, aluno = ?, professor = ?, tags = ?, ano = ?, tipo = ? where id = ?;",
+                [
+                    project.titulo,
+                    project.subtitulo,
+                    project.descricao,
+                    project.aluno,
+                    project.professor,
+                    tagsString,
+                    project.ano,
+                    project.tipo,
+                    project.id,
+                ],
+            );
+        }
+        
         return (result.changes ?? 0) > 0;
     }
 
