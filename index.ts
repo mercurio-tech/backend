@@ -19,6 +19,7 @@ import {
     IsAdminSchema,
     CreateProjectSchema,
     UpdateProjectSchema,
+    DeleteProjectSchema,
     Perms,
 } from "./tipos.ts";
 import { DB } from "./db.ts";
@@ -90,19 +91,24 @@ function isValidPdf(buffer: Buffer): boolean {
     );
 }
 
-async function uploadFiles(req: Request, res: Response, requiresBoth: boolean, id?: number) {
+async function uploadFiles(
+    req: Request,
+    res: Response,
+    requiresBoth: boolean,
+    id?: number,
+) {
     const filesBody = req as unknown as {
         files: { image: Express.Multer.File[]; pdf: Express.Multer.File[] };
     };
     let extension;
     if (filesBody.files) {
         const files = filesBody.files;
-        id = id || await db.getNextId();
+        id = id || (await db.getNextId());
         let imageCondition;
         if (requiresBoth) {
-            imageCondition = files.image && files.pdf
+            imageCondition = files.image && files.pdf;
         } else {
-            imageCondition = files.image !== undefined
+            imageCondition = files.image !== undefined;
         }
 
         if (imageCondition) {
@@ -129,9 +135,9 @@ async function uploadFiles(req: Request, res: Response, requiresBoth: boolean, i
 
         let pdfCondition;
         if (requiresBoth) {
-            pdfCondition = files.pdf && files.image
+            pdfCondition = files.pdf && files.image;
         } else {
-            pdfCondition = files.pdf !== undefined
+            pdfCondition = files.pdf !== undefined;
         }
 
         if (pdfCondition) {
@@ -153,6 +159,23 @@ async function uploadFiles(req: Request, res: Response, requiresBoth: boolean, i
             }
         }
         return extension;
+    }
+}
+
+async function deleteFiles(id: number, image: boolean, pdf: boolean) {
+    if (image) {
+        try {
+            await fs.rm(`dados/files/imagens/${id}`, { recursive: true });
+        } catch (err) {
+            console.error(`Error deleting image files for project ${id}:`, err);
+        }
+    }
+    if (pdf) {
+        try {
+            await fs.rm(`dados/files/pdfs/${id}`, { recursive: true });
+        } catch (err) {
+            console.error(`Error deleting PDF files for project ${id}:`, err);
+        }
     }
 }
 
@@ -272,8 +295,12 @@ app.post(
             sendError(res, "Could not authenticate user.", 401);
             return;
         }
-        
-        const extension = await uploadFiles(req as unknown as Request, res, true);
+
+        const extension = await uploadFiles(
+            req as unknown as Request,
+            res,
+            true,
+        );
         if (extension === undefined) {
             return;
         }
@@ -319,13 +346,31 @@ app.post(
         }
         let updated;
         try {
-            const extension = await uploadFiles(req as unknown as Request, res, false, body.project.id);
+            const files = req as unknown as {
+                files: {
+                    image: Express.Multer.File[];
+                    pdf: Express.Multer.File[];
+                };
+            };
+            let extension;
+            const pdfPresent = files.files.pdf !== undefined;
+            const imagePresent = files.files.image !== undefined;
+            if (pdfPresent || imagePresent) {
+                deleteFiles(body.project.id, imagePresent, pdfPresent);
+                extension = await uploadFiles(
+                    files as unknown as Request,
+                    res,
+                    false,
+                    body.project.id,
+                );
+            }
+
             updated = await db.updateProject({
                 ...body.project,
-                extensao: extension
+                extensao: extension,
             });
         } catch (error) {
-            console.log(error)
+            console.log(error);
             //sendError(res, "Error updating project.", 500);
             return;
         }
@@ -337,6 +382,33 @@ app.post(
     },
 );
 
+app.post(
+    "/deleteProject/",
+    async (
+        req: { body: z.infer<typeof DeleteProjectSchema> },
+        res: Response<ResponseError | ResponseSuccess<boolean>>,
+    ) => {
+        let body;
+        try {
+            body = DeleteProjectSchema.parse(req.body);
+        } catch (error) {
+            sendError(res, "Invalid request body.", 400);
+            return;
+        }
+        const isAuth = await db.verifyAuth(
+            body.auth.username,
+            body.auth.password,
+            Perms.ADMIN,
+        );
+        if (!isAuth) {
+            sendError(res, "Could not authenticate user.", 401);
+            return;
+        }
+        deleteFiles(body.id, true, true);
+        await db.deleteProject(body.id);
+        send(res, { message: true });
+    },
+);
 app.post(
     "/isAdmin/",
     async (

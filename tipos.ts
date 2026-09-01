@@ -22,8 +22,8 @@ export const ProjectOptionalExtension = z.object({
     tipo: z.string(),
     ano: z.int(),
     tags: z.array(z.string()),
-    extensao: z.optional(z.string()),    
-})
+    extensao: z.optional(z.string()),
+});
 
 export const ProjectWithNoId = Project.omit({ id: true });
 
@@ -69,6 +69,11 @@ export const CreateProjectReq = z.object({
 export const UpdateProjectSchema = z.object({
     auth: AuthSchema,
     project: Project.omit({ extensao: true }),
+});
+
+export const DeleteProjectSchema = z.object({
+    auth: AuthSchema,
+    id: z.number(),
 });
 
 export interface ResponseError {

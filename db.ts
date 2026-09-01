@@ -4,7 +4,13 @@ import { compare, hash } from "bcrypt-ts";
 import * as z from "zod";
 import fs from "node:fs/promises";
 
-import { Project, ProjectWithNoId, ProjectOptionalExtension, Admin, Perms } from "./tipos.ts";
+import {
+    Project,
+    ProjectWithNoId,
+    ProjectOptionalExtension,
+    Admin,
+    Perms,
+} from "./tipos.ts";
 
 async function checkFolder(dirPath: string) {
     try {
@@ -171,7 +177,14 @@ export class DB {
                 ],
             );
         }
-        
+
+        return (result.changes ?? 0) > 0;
+    }
+
+    async deleteProject(id: number) {
+        if (!(await this.doesDBExist())) throw new Error("Database não existe");
+        const db = this.db!;
+        const result = await db.run("delete from teses where id = ?;", [id]);
         return (result.changes ?? 0) > 0;
     }
 
