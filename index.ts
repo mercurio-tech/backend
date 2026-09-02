@@ -222,6 +222,48 @@ app.get(
         send(res, val);
     },
 );
+
+app.get(
+    "/getProjects/:page/:year/:tag/:professor",
+    async (
+        req: {
+            params: {
+                page: string;
+                year: string;
+                tag: string;
+                professor: string;
+            };
+        },
+        res: Response<ResponseError | GetProjectsResponse>,
+    ) => {
+        const page = parseInt(req.params.page);
+        if (isNaN(page) || page < 1) {
+            sendError(
+                res,
+                "Invalid page number. Page number must be a positive integer.",
+                400,
+            );
+            return;
+        }
+        const filters = {
+            year: req.params.year !== "null" ? req.params.year : undefined,
+            tag: req.params.tag !== "null" ? req.params.tag : undefined,
+            professor:
+                req.params.professor !== "null"
+                    ? req.params.professor
+                    : undefined,
+        };
+        let val;
+        try {
+            val = await db.getProjects(page, filters);
+        } catch (error) {
+            sendError(res, "Error fetching projects.", 500);
+            return;
+        }
+        send(res, val);
+    },
+);
+
 app.get("/getProjectDetails/", (req: {}, res: Response<ResponseError>) =>
     sendError(res, "Missing id parameter. Use /getProjectDetails/:id", 400),
 );

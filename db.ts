@@ -89,14 +89,39 @@ export class DB {
         return id + 1;
     }
 
-    async getProjects(page: number): Promise<z.infer<typeof Project>[]> {
+    async getProjects(
+        page: number,
+        filters?: { year?: string; tag?: string; professor?: string },
+    ): Promise<z.infer<typeof Project>[]> {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
         const projects: z.infer<typeof Project>[] = [];
-        const result = await db.all(
-            "select * from teses order by ano limit 10 offset ?;",
-            [(page - 1) * 10],
-        );
+        let result;
+        if (filters) {
+            let query = "select * from teses where 1=1";
+            const params: any[] = [];
+            if (filters.year) {
+                query += " and ano = ?";
+                params.push(filters.year);
+            }
+            if (filters.tag) {
+                query += " and tags like ?";
+                params.push(`%${filters.tag}%`);
+            }
+            if (filters.professor) {
+                query += " and professor like ?";
+                params.push(`%${filters.professor}%`);
+            }
+            query += " order by ano limit 10 offset ?;";
+            params.push((page - 1) * 10);
+            result = await db.all(query, params);
+        } else {
+            result = await db.all(
+                "select * from teses order by ano limit 10 offset ?;",
+                [(page - 1) * 10],
+            );
+        }
+
         for (const val of result) {
             // need to convert tags to array of strings, since sqlite doesn't support arrays natively
             if (val.tags && typeof val.tags === "string") {
