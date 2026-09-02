@@ -183,6 +183,26 @@ const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
 app.listen(port);
 
+app.get("/searchProjects/:query", async (req: { params: { query: string }}, res: Response<ResponseError | GetProjectsResponse>) => {
+    const query = req.params.query;
+    if (!query) {
+        sendError(
+                res,
+                "Invalid query.",
+                400,
+        );
+        return;
+    }
+    let val;
+    try {
+        val = await db.searchProject(query);
+    } catch (err) {
+        console.log(err);
+        sendError(res, "Error fetching projects.", 500)
+    }
+    
+});
+
 app.get(
     "/getProjects/",
     async (req: {}, res: Response<ResponseError | GetProjectsResponse>) => {

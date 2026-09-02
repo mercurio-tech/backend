@@ -54,6 +54,10 @@ export class DB {
                 this.db!.exec(
                     "create table teses (id integer unique primary key autoincrement, titulo text, subtitulo text, descricao text, aluno text, professor text, tags text, ano integer, tipo text, extensao text);",
                 );
+                this.db!.exec("create virtual table if not exists busca using fts5(titulo, subtitulo, descricao, aluno, professor, content='teses', content_rowid='id')");
+                this.db!.exec("create trigger teses_ai after insert on teses begin insert into busca(rowid, titulo, subtitulo, descricao) values (new.id, new.titulo, new.subtitulo, new.descricao);end;")
+                this.db!.exec("create trigger teses_ad after delete on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao); end;")
+                this.db!.exec("create trigger teses_au after update on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao); insert into busca(rowid, titulo, subtitulo, descricao) values (new.id, new.titulo, new.subtitulo, new.descricao); end;")
             } catch (error) {
                 console.log(error);
             }
@@ -87,6 +91,16 @@ export class DB {
             return 1;
         }
         return id + 1;
+    }
+
+    async searchProject(query: string) {
+        if (!(await this.doesDBExist())) throw new Error("Database não existe");
+        const db = this.db!;
+        console.log(query)
+        //  where busca match ?
+        const res = await db.all("select t.titulo, t.subtitulo, t.descricao, t.aluno, t.professor, t.tags, t.ano, t.tipo, t.extensao from teses t join busca b on b.rowid = t.id where busca match ? order by bm25(busca, 10, 5, 1, 5, 5)", [query]);
+        console.log(res);
+        return res;
     }
 
     async getProjects(
