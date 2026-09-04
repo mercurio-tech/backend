@@ -183,8 +183,18 @@ const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
 app.listen(port);
 
-app.get("/searchProjects/:query", async (req: { params: { query: string }}, res: Response<ResponseError | GetProjectsResponse>) => {
+app.get("/searchProjects/:query/:page", async (req: { params: { query: string, page: string }}, res: Response<ResponseError | GetProjectsResponse>) => {
     const query = req.params.query;
+    const page = parseInt(req.params.page);
+    if (isNaN(page) || page < 1) {
+        sendError(
+            res,
+            "Invalid page number. Page number must be a positive integer.",
+            400,
+        );
+        return;
+    }
+
     if (!query) {
         sendError(
                 res,
@@ -195,12 +205,12 @@ app.get("/searchProjects/:query", async (req: { params: { query: string }}, res:
     }
     let val;
     try {
-        val = await db.searchProject(query);
+        val = await db.searchProject(query, page);
     } catch (err) {
         console.log(err);
         sendError(res, "Error fetching projects.", 500)
     }
-    
+    send(res, val!);
 });
 
 app.get(

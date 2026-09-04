@@ -54,10 +54,23 @@ export class DB {
                 this.db!.exec(
                     "create table teses (id integer unique primary key autoincrement, titulo text, subtitulo text, descricao text, aluno text, professor text, tags text, ano integer, tipo text, extensao text);",
                 );
-                this.db!.exec("create virtual table if not exists busca using fts5(titulo, subtitulo, descricao, aluno, professor, content='teses', content_rowid='id')");
-                this.db!.exec("create trigger teses_ai after insert on teses begin insert into busca(rowid, titulo, subtitulo, descricao) values (new.id, new.titulo, new.subtitulo, new.descricao);end;")
-                this.db!.exec("create trigger teses_ad after delete on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao); end;")
-                this.db!.exec("create trigger teses_au after update on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao); insert into busca(rowid, titulo, subtitulo, descricao) values (new.id, new.titulo, new.subtitulo, new.descricao); end;")
+                this.db!.exec("create virtual table if not exists busca using fts5(titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao, content='teses', content_rowid='id')");
+                this.db!.exec(
+                    `create trigger teses_ai after insert on teses 
+                    begin 
+                    insert into busca(rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) 
+                    values (new.id, new.titulo, new.subtitulo, new.descricao, new.aluno, new.professor, new.tags, new.ano, new.tipo, new.extensao); 
+                    end;`
+                )
+                this.db!.exec("create trigger teses_ad after delete on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao, old.aluno, old.professor, old.tags, old.ano, old.tipo, old.extensao); end;")
+                this.db!.exec(
+                    `create trigger teses_au after update on teses begin insert into 
+                    busca(busca, rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) 
+                    values ('delete', old.id, old.titulo, old.subtitulo, old.descricao, old.aluno, old.professor, old.tags, old.ano, old.tipo, old.extensao); 
+                    insert into busca(rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) 
+                    values (new.id, new.titulo, new.subtitulo, new.descricao, new.aluno, new.professor, new.tags, new.ano, new.tipo, new.extensao); 
+                    end;`
+                );
             } catch (error) {
                 console.log(error);
             }
@@ -93,14 +106,20 @@ export class DB {
         return id + 1;
     }
 
-    async searchProject(query: string) {
+    async searchProject(query: string, page: number = 1) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
-        console.log(query)
-        //  where busca match ?
-        const res = await db.all("select t.titulo, t.subtitulo, t.descricao, t.aluno, t.professor, t.tags, t.ano, t.tipo, t.extensao from teses t join busca b on b.rowid = t.id where busca match ? order by bm25(busca, 10, 5, 1, 5, 5)", [query]);
-        console.log(res);
-        return res;
+        const res = await db.all("select *, rowid from busca where busca match ? order by bm25(busca, 10, 5, 1, 5, 5) limit 10 offset ?", [query, (page - 1) * 10]);
+        const projects: z.infer<typeof Project>[] = [];
+        for (const val of res) {
+            // need to convert tags to array of strings, since sqlite doesn't support arrays natively
+            if (val.tags && typeof val.tags === "string") {
+                val.tags = val.tags.split(",").map((tag: string) => tag.trim());
+            }
+            val.id = val.rowid;
+            projects.push(Project.parse(val));
+        }
+        return projects;
     }
 
     async getProjects(
