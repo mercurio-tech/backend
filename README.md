@@ -68,16 +68,27 @@ O resultado depende da api que você utilizou.
 - /files/pdfs/{id}/arquivo.pdf
   PDF associado ao projeto
 
+- /searchProjects/:query/:page
+  $\color{lime}{\textsf{GET}}$  
+  Retorna os 10 projetos dessa pagina que condiz com a pesquisa
+  result: [Project](#project)[]
+
 - /getProjects/
   $\color{lime}{\textsf{GET}}$  
   Retorna os primeiros 10 projetos (ordenado por data)  
-  (seria interessante se fosse possivel mudar como os dados sao ordenados e filtros)  
   result: [Project](#project)[]
 
 - /getProjects/:page
   $\color{lime}{\textsf{GET}}$  
   Retorna os 10 projetos dessa pagina  
-  :page deve ser um Inteiro positivo  
+  :page deve ser um inteiro positivo  
+  result: [Project](#project)[]
+
+- /getProjects/:page/:year/:tag/:professor
+  $\color{lime}{\textsf{GET}}$  
+  Retorna os 10 projetos dessa pagina com o filtro
+  :page deve ser um inteiro positivo
+  :year deve ser um inteiro positivo
   result: [Project](#project)[]
 
 - /getProjectDetails/:id
@@ -98,7 +109,19 @@ O resultado depende da api que você utilizou.
 - /updateProject/
   $\color{red}{\textsf{POST}}$  
   $\color{orange}{\textsf{Requer Admin}}$  
-  TODO: documentar isso
+  (Espera-se um FormData, não JSON comum como as outras APIs)  
+  Fields:
+    - auth: O [AuthSchema](#authschema) comum em todas APIs admin, porém em string JSON (FormData não suporta json comum)
+    - project: O [Project sem ID](#project), porém em string JSON (FormData não suporta json comum)
+    - image: Imagem em PNG, JPEG ou JPG (opcional)
+    - pdf: PDF do projeto (opcional)
+
+- /deleteProject/
+  $\color{red}{\textsf{POST}}$  
+  $\color{orange}{\textsf{Requer Admin}}$
+  Fields:
+    - auth: O [AuthSchema](#authschema) comum em todas APIs admin
+    - id: ID do projeto a ser deletado
 
 - /isAdmin/
   $\color{red}{\textsf{POST}}$  

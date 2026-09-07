@@ -183,35 +183,37 @@ const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
 app.listen(port);
 
-app.get("/searchProjects/:query/:page", async (req: { params: { query: string, page: string }}, res: Response<ResponseError | GetProjectsResponse>) => {
-    const query = req.params.query;
-    const page = parseInt(req.params.page);
-    if (isNaN(page) || page < 1) {
-        sendError(
-            res,
-            "Invalid page number. Page number must be a positive integer.",
-            400,
-        );
-        return;
-    }
-
-    if (!query) {
-        sendError(
+app.get(
+    "/searchProjects/:query/:page",
+    async (
+        req: { params: { query: string; page: string } },
+        res: Response<ResponseError | GetProjectsResponse>,
+    ) => {
+        const query = req.params.query;
+        const page = parseInt(req.params.page);
+        if (isNaN(page) || page < 1) {
+            sendError(
                 res,
-                "Invalid query.",
+                "Invalid page number. Page number must be a positive integer.",
                 400,
-        );
-        return;
-    }
-    let val;
-    try {
-        val = await db.searchProject(query, page);
-    } catch (err) {
-        console.log(err);
-        sendError(res, "Error fetching projects.", 500)
-    }
-    send(res, val!);
-});
+            );
+            return;
+        }
+
+        if (!query) {
+            sendError(res, "Invalid query.", 400);
+            return;
+        }
+        let val;
+        try {
+            val = await db.searchProject(query, page);
+        } catch (err) {
+            console.log(err);
+            sendError(res, "Error fetching projects.", 500);
+        }
+        send(res, val!);
+    },
+);
 
 app.get(
     "/getProjects/",
@@ -361,7 +363,7 @@ app.post(
         const isAuth = await db.verifyAuth(
             body.auth.username,
             body.auth.password,
-            Perms.ADMIN,
+            Perms.EDITOR,
         );
         if (!isAuth) {
             sendError(res, "Could not authenticate user.", 401);
@@ -410,7 +412,7 @@ app.post(
         const isAuth = await db.verifyAuth(
             body.auth.username,
             body.auth.password,
-            Perms.ADMIN,
+            Perms.EDITOR,
         );
         if (!isAuth) {
             sendError(res, "Could not authenticate user.", 401);
