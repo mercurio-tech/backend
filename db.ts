@@ -54,22 +54,26 @@ export class DB {
                 this.db!.exec(
                     "create table teses (id integer unique primary key autoincrement, titulo text, subtitulo text, descricao text, aluno text, professor text, tags text, ano integer, tipo text, extensao text);",
                 );
-                this.db!.exec("create virtual table if not exists busca using fts5(titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao, content='teses', content_rowid='id')");
+                this.db!.exec(
+                    "create virtual table if not exists busca using fts5(titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao, content='teses', content_rowid='id')",
+                );
                 this.db!.exec(
                     `create trigger teses_ai after insert on teses 
                     begin 
                     insert into busca(rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) 
                     values (new.id, new.titulo, new.subtitulo, new.descricao, new.aluno, new.professor, new.tags, new.ano, new.tipo, new.extensao); 
-                    end;`
-                )
-                this.db!.exec("create trigger teses_ad after delete on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao, old.aluno, old.professor, old.tags, old.ano, old.tipo, old.extensao); end;")
+                    end;`,
+                );
+                this.db!.exec(
+                    "create trigger teses_ad after delete on teses begin insert into busca(busca, rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) values ('delete', old.id, old.titulo, old.subtitulo, old.descricao, old.aluno, old.professor, old.tags, old.ano, old.tipo, old.extensao); end;",
+                );
                 this.db!.exec(
                     `create trigger teses_au after update on teses begin insert into 
                     busca(busca, rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) 
                     values ('delete', old.id, old.titulo, old.subtitulo, old.descricao, old.aluno, old.professor, old.tags, old.ano, old.tipo, old.extensao); 
                     insert into busca(rowid, titulo, subtitulo, descricao, aluno, professor, tags, ano, tipo, extensao) 
                     values (new.id, new.titulo, new.subtitulo, new.descricao, new.aluno, new.professor, new.tags, new.ano, new.tipo, new.extensao); 
-                    end;`
+                    end;`,
                 );
             } catch (error) {
                 console.log(error);
@@ -109,7 +113,10 @@ export class DB {
     async searchProject(query: string, page: number = 1) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
-        const res = await db.all("select *, rowid from busca where busca match ? order by bm25(busca, 10, 5, 1, 5, 5) limit 10 offset ?", [query, (page - 1) * 10]);
+        const res = await db.all(
+            "select *, rowid from busca where busca match ? order by bm25(busca, 10, 5, 1, 5, 5) limit 10 offset ?",
+            [query, (page - 1) * 10],
+        );
         const projects: z.infer<typeof Project>[] = [];
         for (const val of res) {
             // need to convert tags to array of strings, since sqlite doesn't support arrays natively
@@ -124,7 +131,12 @@ export class DB {
 
     async getProjects(
         page: number,
-        filters?: { year?: string; tag?: string; professor?: string },
+        filters?: {
+            year?: string;
+            tag?: string;
+            professor?: string;
+            type?: string;
+        },
     ): Promise<z.infer<typeof Project>[]> {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;
@@ -144,6 +156,10 @@ export class DB {
             if (filters.professor) {
                 query += " and professor like ?";
                 params.push(`%${filters.professor}%`);
+            }
+            if (filters.type) {
+                query += " and tipo = ?";
+                params.push(filters.type);
             }
             query += " order by ano limit 10 offset ?;";
             params.push((page - 1) * 10);
