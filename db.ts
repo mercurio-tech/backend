@@ -12,6 +12,8 @@ import {
     Perms,
 } from "./tipos.ts";
 
+import type { Filter } from "./tipos.ts";
+
 async function checkFolder(dirPath: string) {
     try {
         const stats = await fs.stat(dirPath);
@@ -109,6 +111,34 @@ export class DB {
         }
         return id + 1;
     }
+    async getAvailableFilters() {
+        if (!(await this.doesDBExist())) throw new Error("Database não existe");
+        const db = this.db!;
+        const res = await db.all(
+            "select distinct ano as year, tipo as type, professor from teses;",
+        );
+        const tagRows = await db.all(`
+            with recursive split(remaining, tag) as (
+                select tags || ',', ''
+                from teses
+                where tags is not null
+                union all
+                select substr(remaining, instr(remaining, ',') + 1),
+                       trim(substr(remaining, 1, instr(remaining, ',') - 1))
+                from split
+                where instr(remaining, ',') > 0
+            )
+            select distinct tag
+            from split
+            where tag <> ''
+            order by tag;
+        `);
+
+        return {
+            filters: res as Omit<Filter, "tag">[],
+            tags: tagRows.map(({ tag }: { tag: string }) => tag),
+        };
+    }
 
     async searchProject(query: string, page: number = 1) {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
@@ -131,12 +161,7 @@ export class DB {
 
     async getProjects(
         page: number,
-        filters?: {
-            year?: string;
-            tag?: string;
-            professor?: string;
-            type?: string;
-        },
+        filters?: Filter,
     ): Promise<z.infer<typeof Project>[]> {
         if (!(await this.doesDBExist())) throw new Error("Database não existe");
         const db = this.db!;

@@ -40,6 +40,19 @@ Estrutura:
 }
 ```
 
+### Filter
+
+Estrutura:
+
+```json
+{
+  year: number,
+  type: 'SIP' | 'SIC'
+  professor: string
+  tags: string[]
+}
+```
+
 Cada resposta pode ser um erro ou sucesso.
 
 - Estrutura de Erro:
@@ -69,6 +82,13 @@ O resultado depende da api que você utilizou.
 - /files/pdfs/{id}/arquivo.pdf
   PDF associado ao projeto
 
+- /getAvailableFilters/
+  $\color{lime}{\textsf{GET}}$  
+  Retorna todos os filtros
+  result: {
+    filters: Filter[] (sem tags)
+    tags: string[]
+  }
 - /searchProjects/:query/:page
   $\color{lime}{\textsf{GET}}$  
   Retorna os 10 projetos dessa pagina que condiz com a pesquisa

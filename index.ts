@@ -13,6 +13,7 @@ import type {
     RegisterAdminResponse,
     GetAdminPresentResponse,
     CreateProjectReq,
+    AvailableFilters
 } from "./tipos";
 import {
     RegisterAdminSchema,
@@ -183,6 +184,20 @@ async function deleteFiles(id: number, image: boolean, pdf: boolean) {
 const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
 app.listen(port);
+
+app.get(
+    "/getAvailableFilters/",
+    async (req: {}, res: Response<ResponseError | ResponseSuccess<AvailableFilters>>) => {
+        let val;
+        try {
+            val = await db.getAvailableFilters();
+        } catch (error) {
+            sendError(res, "Error fetching available filters.", 500);
+            return;
+        }
+        send(res, val);
+    }
+)
 
 app.get(
     "/searchProjects/:query/:page",

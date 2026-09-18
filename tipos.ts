@@ -33,6 +33,18 @@ export const Perms = {
 } as const;
 export type Perms = typeof Perms;
 
+export type Filter = {
+    year?: string;
+    tag?: string;
+    professor?: string;
+    type?: string;
+}
+
+export type AvailableFilters = {
+    filters: Omit<Filter, "tag">[]
+    tags: string[]
+}
+
 export const Admin = z.object({
     id: z.int(),
     nome: z.string(),
