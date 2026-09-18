@@ -28,8 +28,9 @@ const port = 3000;
 const app = express();
 const db = new DB();
 
+const isTesting = (process.env.NODE_ENV || "development") === "development";
 const limiter = rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 minutes
+    windowMs: isTesting ? 1 : 5 * 60 * 1000, // 5 minutes
     limit: 100, // Limit each IP to 100 requests per `window` (here, per 5 minutes)
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
@@ -246,7 +247,7 @@ app.get(
         }
         let val;
         try {
-            val = await db.getProjects(1);
+            val = await db.getProjects(page);
         } catch (error) {
             sendError(res, "Error fetching projects.", 500);
             return;
