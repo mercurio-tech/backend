@@ -12,8 +12,9 @@ import {
 import { send, sendError } from "../lib/responses.ts";
 import { uploadFiles, deleteFiles } from "../lib/files.ts";
 import { asyncHandler } from "../lib/asyncHandler.ts";
+import type { FileStorage } from "../lib/storage/index.ts";
 
-export function adminProjectsRouter(db: DBAdapter) {
+export function adminProjectsRouter(db: DBAdapter, storage: FileStorage) {
     const r = Router();
     const upload = multer();
     const filesMiddleware = upload.fields([
@@ -48,7 +49,7 @@ export function adminProjectsRouter(db: DBAdapter) {
                 return;
             }
 
-            const extension = await uploadFiles(req, res, db, true);
+            const extension = await uploadFiles(req, res, db, storage, true);
             if (extension === undefined) return;
 
             await db.putProject({ ...body.project, extensao: extension });
@@ -92,8 +93,8 @@ export function adminProjectsRouter(db: DBAdapter) {
                 const pdfPresent = files.files?.pdf !== undefined;
                 const imagePresent = files.files?.image !== undefined;
                 if (pdfPresent || imagePresent) {
-                    await deleteFiles(body.project.id, imagePresent, pdfPresent);
-                    extension = await uploadFiles(req, res, db, false, body.project.id);
+                    await deleteFiles(body.project.id, imagePresent, pdfPresent, storage);
+                    extension = await uploadFiles(req, res, db, storage, false, body.project.id);
                 }
                 updated = await db.updateProject({
                     ...body.project,
@@ -129,7 +130,7 @@ export function adminProjectsRouter(db: DBAdapter) {
                 sendError(res, "Could not authenticate user.", 401);
                 return;
             }
-            await deleteFiles(body.id, true, true);
+            await deleteFiles(body.id, true, true, storage);
             await db.deleteProject(body.id);
             send(res, { message: true });
         }),

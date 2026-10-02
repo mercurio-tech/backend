@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import fs from "node:fs/promises";
-import { sendError } from "./responses.ts";
 import type { DBAdapter } from "../tipos.ts";
+import type { FileStorage } from "./storage/index.ts";
+import { sendError } from "./responses.ts";
 
 export function isValidImage(buffer: Buffer): boolean {
     if (
@@ -28,6 +28,7 @@ export async function uploadFiles(
     req: Request,
     res: Response,
     db: DBAdapter,
+    storage: FileStorage,
     requiresBoth: boolean,
     id?: number,
 ): Promise<string | undefined> {
@@ -40,56 +41,64 @@ export async function uploadFiles(
     id = id || (await db.getNextId());
     let extension: string | undefined;
 
-    const imageCondition = requiresBoth ? files.image && files.pdf : files.image !== undefined;
+    // Decide o que foi enviado
+    const imageCondition = requiresBoth
+        ? files.image && files.pdf
+        : files.image !== undefined;
+    const pdfCondition = requiresBoth
+        ? files.pdf && files.image
+        : files.pdf !== undefined;
+
+    // Valida assinatura ANTES de qualquer IO
     if (imageCondition) {
         const image = files.image[0];
-        const splitImage = image.originalname.split(".");
-        const imageExtension = splitImage[splitImage.length - 1];
-        extension = imageExtension;
-        try {
-            if (!isValidImage(image.buffer)) throw new Error("Invalid Files");
-            await fs.mkdir(`dados/files/imagens/${id}`, { recursive: true });
-            await fs.writeFile(
-                `dados/files/imagens/${id}/imagem.${imageExtension}`,
-                image.buffer,
-            );
-        } catch {
+        if (!isValidImage(image.buffer)) {
             sendError(res, "Invalid Files", 401);
             return;
         }
+        const splitImage = image.originalname.split(".");
+        extension = splitImage[splitImage.length - 1];
     }
-
-    const pdfCondition = requiresBoth ? files.pdf && files.image : files.pdf !== undefined;
     if (pdfCondition) {
         const pdf = files.pdf[0];
         if (!isValidPdf(pdf.buffer)) {
             sendError(res, "Invalid Files", 401);
             return;
         }
-        try {
-            await fs.mkdir(`dados/files/pdfs/${id}`, { recursive: true });
-            await fs.writeFile(`dados/files/pdfs/${id}/arquivo.pdf`, pdf.buffer);
-        } catch {
-            sendError(res, "Invalid Files", 401);
-            return;
-        }
     }
+
+    // Só então delega ao storage concreto
+    try {
+        await storage.saveProjectFiles({
+            id,
+            image: imageCondition
+                ? {
+                    buffer: files.image[0].buffer,
+                    extension: extension!,
+                    mimetype: files.image[0].mimetype,
+                }
+                : undefined,
+            pdf: pdfCondition
+                ? {
+                    buffer: files.pdf[0].buffer,
+                    mimetype: files.pdf[0].mimetype,
+                }
+                : undefined,
+        });
+    } catch (err) {
+        console.error("Storage save error:", err);
+        sendError(res, "Invalid Files", 401);
+        return;
+    }
+
     return extension;
 }
 
-export async function deleteFiles(id: number, image: boolean, pdf: boolean) {
-    if (image) {
-        try {
-            await fs.rm(`dados/files/imagens/${id}`, { recursive: true });
-        } catch (err) {
-            console.error(`Error deleting image files for project ${id}:`, err);
-        }
-    }
-    if (pdf) {
-        try {
-            await fs.rm(`dados/files/pdfs/${id}`, { recursive: true });
-        } catch (err) {
-            console.error(`Error deleting PDF files for project ${id}:`, err);
-        }
-    }
+export async function deleteFiles(
+    id: number,
+    image: boolean,
+    pdf: boolean,
+    storage: FileStorage,
+) {
+    await storage.deleteProjectFiles(id, { image, pdf });
 }

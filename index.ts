@@ -3,13 +3,17 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 
-import { createDB, type DBAdapter } from "./db.ts";
+import { createDB, type DBAdapter, type DBDriver } from "./db.ts";
+import { createFileStorage, type FileStorage } from "./lib/storage/index.ts";
 import { sendError } from "./lib/responses.ts";
 import { mountRoutes } from "./routes/index.ts";
 
 const port = 3000;
 const app = express();
+const driver: DBDriver =
+    (process.env.DB_DRIVER as DBDriver | undefined) ?? "postgres";
 const db: DBAdapter = createDB();
+const storage: FileStorage = createFileStorage(driver);
 
 const isTesting = (process.env.NODE_ENV || "development") === "development";
 const limiter = rateLimit({
@@ -34,9 +38,11 @@ app.use(async (req, res, next) => {
     }
 });
 
-mountRoutes(app, db);
+mountRoutes(app, db, storage);
 
-app.use("/files", express.static("dados/files"));
+if (driver === "sqlite") {
+    app.use("/files", express.static("dados/files"));
+}
 
 // Middleware de erro final (o asyncHandler manda pra cá).
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
