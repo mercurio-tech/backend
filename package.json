@@ -16,7 +16,7 @@
     "main": "index.ts",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "node index.ts --trace-sync-io"
+        "dev": "npx tsx index.ts"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.117.2",
