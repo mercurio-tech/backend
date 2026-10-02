@@ -52,6 +52,52 @@ export const Admin = z.object({
     permissao: z.enum(Perms),
 });
 
+export interface DBAdapter {
+    /** Resolve quando o pool/arquivo está aberto e o schema garantido. */
+    ready(): Promise<void>;
+
+    /** True depois de `ready()`. */
+    isReady(): boolean;
+
+    // ---- leitura ---------------------------------------------------------
+    getNextId(): Promise<number>;
+    getAvailableFilters(): Promise<AvailableFilters>;
+    searchProject(
+        query: string,
+        page?: number,
+    ): Promise<z.infer<typeof Project>[]>;
+    getProjects(
+        page: number,
+        filters?: Filter,
+    ): Promise<z.infer<typeof Project>[]>;
+    getProject(id: string): Promise<z.infer<typeof Project> | null>;
+
+    // ---- escrita ---------------------------------------------------------
+    putProject(project: z.infer<typeof ProjectWithNoId>): Promise<void>;
+    updateProject(
+        project: z.infer<typeof ProjectOptionalExtension>,
+    ): Promise<boolean>;
+    deleteProject(id: number): Promise<boolean>;
+
+    // ---- admins ----------------------------------------------------------
+    getAdminCount(): Promise<number>;
+    adminExists(username: string): Promise<boolean>;
+    insertAdmin(
+        username: string,
+        password: string,
+        permission: Perms[keyof Perms],
+    ): Promise<boolean | void>;
+    verifyAuth(
+        username: string,
+        password: string,
+        permissionLevel: Perms[keyof Perms],
+    ): Promise<boolean>;
+    getAdmin(username: string): Promise<z.infer<typeof Admin>>;
+
+    // ---- ciclo de vida ---------------------------------------------------
+    close(): Promise<void>;
+}
+
 export const AuthSchema = z.object({
     username: z.string().min(3).max(20),
     password: z.string().min(8).max(18),

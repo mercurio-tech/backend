@@ -23,11 +23,12 @@ import {
     DeleteProjectSchema,
     Perms,
 } from "./tipos.ts";
-import { DB } from "./db.ts";
+import { createDB } from "./db.ts";
+import type { DBAdapter } from "./tipos.ts";
 
 const port = 3000;
 const app = express();
-const db = new DB();
+const db: DBAdapter = createDB();
 
 const isTesting = (process.env.NODE_ENV || "development") === "development";
 const limiter = rateLimit({
@@ -183,7 +184,16 @@ async function deleteFiles(id: number, image: boolean, pdf: boolean) {
 
 const middleware = [express.json(), cors(), limiter];
 app.use(middleware);
-app.listen(port);
+app.use(async (req, res, next) => {
+    if (db.isReady()) return next();
+    try {
+        await db.ready();
+        next();
+    } catch (err) {
+        console.error("DB not ready:", err);
+        sendError(res, "Database not ready.", 503);
+    }
+});app.listen(port);
 
 app.get(
     "/getAvailableFilters/",
@@ -572,3 +582,11 @@ app.post(
 );
 
 app.use("/files", express.static("dados/files"));
+process.on("SIGINT", async () => {
+    await db.close();
+    process.exit(0);
+});
+process.on("SIGTERM", async () => {
+    await db.close();
+    process.exit(0);
+});
