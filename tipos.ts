@@ -56,10 +56,8 @@ export interface DBAdapter {
     /** Resolve quando o pool/arquivo está aberto e o schema garantido. */
     ready(): Promise<void>;
 
-    /** True depois de `ready()`. */
     isReady(): boolean;
 
-    // ---- leitura ---------------------------------------------------------
     getNextId(): Promise<number>;
     getAvailableFilters(): Promise<AvailableFilters>;
     searchProject(
@@ -72,14 +70,12 @@ export interface DBAdapter {
     ): Promise<z.infer<typeof Project>[]>;
     getProject(id: string): Promise<z.infer<typeof Project> | null>;
 
-    // ---- escrita ---------------------------------------------------------
     putProject(project: z.infer<typeof ProjectWithNoId>): Promise<void>;
     updateProject(
         project: z.infer<typeof ProjectOptionalExtension>,
     ): Promise<boolean>;
     deleteProject(id: number): Promise<boolean>;
 
-    // ---- admins ----------------------------------------------------------
     getAdminCount(): Promise<number>;
     adminExists(username: string): Promise<boolean>;
     insertAdmin(
@@ -94,7 +90,6 @@ export interface DBAdapter {
     ): Promise<boolean>;
     getAdmin(username: string): Promise<z.infer<typeof Admin>>;
 
-    // ---- ciclo de vida ---------------------------------------------------
     close(): Promise<void>;
 }
 
@@ -132,6 +127,33 @@ export const UpdateProjectSchema = z.object({
 export const DeleteProjectSchema = z.object({
     auth: AuthSchema,
     id: z.number(),
+});
+
+export const PageParamSchema = z
+    .string()
+    .trim()
+    .regex(/^\d+$/, "Page must be a positive integer.")
+    .transform((v) => parseInt(v, 10))
+    .refine((n) => n >= 1, "Page must be >= 1.");
+
+const OptionalFilterSchema = z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined || v === "null" || v === "" ? undefined : v));
+
+export const FiltersParamsSchema = z.object({
+    year: OptionalFilterSchema,
+    tag: OptionalFilterSchema,
+    professor: OptionalFilterSchema,
+    type: OptionalFilterSchema,
+});
+
+export const ListProjectsParamsSchema = z.object({
+    page: PageParamSchema.optional(),
+    year: OptionalFilterSchema,
+    tag: OptionalFilterSchema,
+    professor: OptionalFilterSchema,
+    type: OptionalFilterSchema,
 });
 
 export interface ResponseError {
