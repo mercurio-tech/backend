@@ -18,7 +18,7 @@ const storage: FileStorage = createFileStorage(driver);
 const isTesting = (process.env.NODE_ENV || "development") === "development";
 const limiter = rateLimit({
     windowMs: isTesting ? 1 : 5 * 60 * 1000,
-    limit: 100,
+    limit: 10000,
     standardHeaders: true,
     legacyHeaders: false,
     ipv6Subnet: 56,
@@ -45,13 +45,26 @@ if (driver === "sqlite") {
 }
 
 // Middleware de erro final (o asyncHandler manda pra cá).
-app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error(err);
-    sendError(res, "Internal server error.", 500);
-});
+app.use(
+    (
+        err: unknown,
+        _req: express.Request,
+        res: express.Response,
+        _next: express.NextFunction,
+    ) => {
+        console.error(err);
+        sendError(res, "Internal server error.", 500);
+    },
+);
 
-process.on("SIGINT", async () => { await db.close(); process.exit(0); });
-process.on("SIGTERM", async () => { await db.close(); process.exit(0); });
+process.on("SIGINT", async () => {
+    await db.close();
+    process.exit(0);
+});
+process.on("SIGTERM", async () => {
+    await db.close();
+    process.exit(0);
+});
 
 app.listen(port, () => {
     console.log(`Server listening on :${port}`);
