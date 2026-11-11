@@ -8,7 +8,7 @@ import { createFileStorage, type FileStorage } from "./lib/storage/index.ts";
 import { sendError } from "./lib/responses.ts";
 import { mountRoutes } from "./routes/index.ts";
 
-const port = 3000;
+const port = process.env.PORT || 3000;
 const app = express();
 const driver: DBDriver =
     (process.env.DB_DRIVER as DBDriver | undefined) ?? "postgres";
